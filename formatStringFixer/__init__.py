@@ -13,5 +13,5 @@ def fixPrintf(bv):
     fmtStringAddr = LLIL_instr.high_level_il.operands[1][0].operands[0]
     bv.define_data_var(fmtStringAddr, t[0])
 
-PluginCommand.register("Format String Fixer", "Fixes data type for format strings", fixPrintf())
+PluginCommand.register("Format String Fixer", "Fixes data type for format strings", fixPrintf)
 
