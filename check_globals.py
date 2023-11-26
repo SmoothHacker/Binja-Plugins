@@ -54,15 +54,15 @@ for addr, dv in target_vars:
             continue
         target_data_var = dv
         if isinstance(dv_xref.mlil, MediumLevelILSetVar) or isinstance(dv_xref.mlil, MediumLevelILCall) or isinstance(dv_xref.mlil, MediumLevelILTailcall) or isinstance(dv_xref.mlil, MediumLevelILRet) or isinstance(dv_xref.mlil, MediumLevelILJump):
-            print(f"Found read for {dv.address:#x} @ {dv_xref.mlil.address:#x}")
+            print(f"Found read for {dv.address:#x} @ {dv_xref.mlil.address:#x} in {dv_xref.mlil.function.source_function.name}")
         elif isinstance(dv_xref.mlil, MediumLevelILStore):
-            print(f"Found write for {dv.address:#x} @ {dv_xref.mlil.address:#x}")
+            print(f"Found write for {dv.address:#x} @ {dv_xref.mlil.address:#x} in {dv_xref.mlil.function.source_function.name}")
         elif isinstance(dv_xref.mlil, MediumLevelILIf):
             # dv can be found in condition or missing due to x86 LLIL lifting
             if not dv_xref.mlil.condition.visit(find_var):
-                print(f"Found read for {dv.address:#x} @ {dv_xref.mlil.address:#x}")
+                print(f"Found read for {dv.address:#x} @ {dv_xref.mlil.address:#x} in {dv_xref.mlil.function.source_function.name}")
         else:
-            print(f"Found unhandled operation {dv_xref.mlil.operation.name} @ {dv_xref.mlil.address:#x}")
+            print(f"Found unhandled operation {dv_xref.mlil.operation.name} @ {dv_xref.mlil.address:#x} in {dv_xref.mlil.function.source_function.name}")
 
 
 print(f"Searched though {total_xrefs} xrefs")
