@@ -1,4 +1,17 @@
+import argparse
+
 from binaryninja import *
+
+parser = argparse.ArgumentParser(
+    prog="Binja DataVar Read/Write checker",
+    description="This program finds all reads/writes for the specified data vars",
+    epilog="Author: Scott Lagler (SmoothHacker)")
+
+parser.add_argument("bndb")
+parser.add_argument("--vars", dest="target_addrs", metavar="N", type=str, nargs='*', help='Target addresses')
+
+args = parser.parse_args()
+print(args)
 
 target_data_var: DataVariable
 
@@ -15,12 +28,20 @@ def is_in_listed_segments(rw_segments: List[Segment], dv: DataVariable):
             return True
     return False
 
-bv: BinaryView = load(sys.argv[1])
+bv: BinaryView = load(args.bndb)
 
 rw_segments = [x for x in bv.segments if x.readable and x.writable]
 total_xrefs = 0
 
-for addr, dv in bv.data_vars.items():
+if args.target_addrs is None:
+    target_vars = bv.data_vars.items()
+else:
+    target_vars = []
+    for x in args.target_addrs:
+        addr = int(x, 16)
+        target_vars.append((addr, bv.data_vars[addr]))
+
+for addr, dv in target_vars:
     # check if data var resides in R/W memory
     if not is_in_listed_segments(rw_segments, dv):
         continue
