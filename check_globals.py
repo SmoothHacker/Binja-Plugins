@@ -1,30 +1,15 @@
 from binaryninja import *
 
-num_reads = 0
-num_writes = 0
+target_data_var: DataVariable
 
-operations_found = set()
-
-def visitor(_a: str, inst: MediumLevelILOperandType, _c: str, parent: Optional[MediumLevelILInstruction]) -> bool:
-    global num_reads
-    global num_writes
-    global operations_found
-    if isinstance(inst, MediumLevelILLoad):
-        if isinstance(inst.operands[0], MediumLevelILConstPtr):
-            # Sort RW based on parent mlil instr
-            operations_found.add(parent.operation)
-
-            if parent.operation == MediumLevelILOperation.MLIL_SET_VAR:
-                # use dest and src
-                pass
-            elif parent.operation == MediumLevelILOperation.MLIL_JUMP:
-                num_reads += 1
-            else:
-                print(f"parent op: {parent.operation.name} | {hex(parent.address)}")
-
+def find_var(_a: str, inst: MediumLevelILOperandType, _c: str, parent: Optional['MediumLevelILInstruction']) -> bool:
+    global target_data_var
+    if isinstance(inst, MediumLevelILConstPtr) or isinstance(inst, MediumLevelILImport):
+        if inst.value.value == target_data_var.address:
             return False
+    return True
 
-def is_rw(rw_segments: List[Segment], dv: DataVariable):
+def is_in_listed_segments(rw_segments: List[Segment], dv: DataVariable):
     for seg in rw_segments:
         if seg.start <= dv.address and dv.address <= seg.end:
             return True
@@ -32,17 +17,31 @@ def is_rw(rw_segments: List[Segment], dv: DataVariable):
 
 bv: BinaryView = load(sys.argv[1])
 
-rw_segments = list(x for x in bv.segments if x.readable and x.writable)
+rw_segments = [x for x in bv.segments if x.readable and x.writable]
+total_xrefs = 0
 
 for addr, dv in bv.data_vars.items():
     # check if data var resides in R/W memory
-    if not is_rw(rw_segments, dv):
+    if not is_in_listed_segments(rw_segments, dv):
         continue
 
     # Iterate through data var xrefs
     for dv_xref in bv.get_code_refs(addr):
+        #print(f"Searching for {dv.address:#x} @ {dv_xref.address:#x}")
+        total_xrefs += 1
         if dv_xref.mlil is None:
             continue
-        dv_xref.mlil.visit(visitor)
+        target_data_var = dv
+        if isinstance(dv_xref.mlil, MediumLevelILSetVar) or isinstance(dv_xref.mlil, MediumLevelILCall) or isinstance(dv_xref.mlil, MediumLevelILTailcall) or isinstance(dv_xref.mlil, MediumLevelILRet) or isinstance(dv_xref.mlil, MediumLevelILJump):
+            print(f"Found read for {dv.address:#x} @ {dv_xref.mlil.address:#x}")
+        elif isinstance(dv_xref.mlil, MediumLevelILStore):
+            print(f"Found write for {dv.address:#x} @ {dv_xref.mlil.address:#x}")
+        elif isinstance(dv_xref.mlil, MediumLevelILIf):
+            # dv can be found in condition or missing due to x86 LLIL lifting
+            if not dv_xref.mlil.condition.visit(find_var):
+                print(f"Found read for {dv.address:#x} @ {dv_xref.mlil.address:#x}")
+        else:
+            print(f"Found unhandled operation {dv_xref.mlil.operation.name} @ {dv_xref.mlil.address:#x}")
 
-print(f"count {num_reads}")
+
+print(f"Searched though {total_xrefs} xrefs")
